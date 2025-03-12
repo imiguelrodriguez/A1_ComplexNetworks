@@ -25,7 +25,7 @@ class NetworkAnalyzer:
 
         return G
 
-    def extract_microscopic_characterizations(self):
+    def extract_macroscopic_characterizations(self):
         """Extracts and prints various microscopic network properties."""
         num_nodes = self.G.number_of_nodes()
         num_edges = self.G.number_of_edges()
@@ -60,20 +60,62 @@ class NetworkAnalyzer:
     def plot_histograms(self):
         """Plots the degree distribution in both linear and log-log scales."""
         fig, axs = plt.subplots(1, 2, figsize=(12, 5))
+        '''
+        count_degrees = dict()
+        for degree in self.degree_sequence:
+            if degree not in count_degrees.keys():
+                count_degrees[degree] = 1
+            else:
+                count_degrees[degree] += 1
+        '''
+        degree_set = set(self.degree_sequence)
 
         # Linear Scale Histogram
-        axs[0].hist(self.degree_sequence, bins=30, edgecolor='black')
+        axs[0].hist(self.degree_sequence, bins=len(degree_set), edgecolor='black')
         axs[0].set_title("Degree Distribution (Linear Scale)")
         axs[0].set_xlabel("Degree")
         axs[0].set_ylabel("Frequency")
+        axs[0].set_xlim(left=self.min_degree, right=self.max_degree)
 
         # Log-Log Scale Histogram with Logarithmic Binning
         bins = np.logspace(np.log10(self.min_degree), np.log10(self.max_degree), num=20)
         axs[1].hist(self.degree_sequence, bins=bins, edgecolor='black', log=True)
+        #axs[1].set_xlim(left=np.log10(self.min_degree), right=np.log10(self.max_degree))
         axs[1].set_xscale("log")
         axs[1].set_title("Degree Distribution (Log-Log Scale)")
         axs[1].set_xlabel("Degree (log scale)")
         axs[1].set_ylabel("Frequency (log scale)")
-
         plt.tight_layout()
         plt.show()
+
+    def extract_microscopic_characterizations(self):
+        # Compute centralities
+        betweenness = nx.betweenness_centrality(self.G)
+        degree_centrality = nx.degree_centrality(self.G)
+        eigenvector = nx.eigenvector_centrality(self.G, max_iter=1000)
+
+        # Get top 5 nodes for each centrality measure
+        top_betweenness = sorted(betweenness.items(), key=lambda x: x[1], reverse=True)[:5]
+        top_degree = sorted(degree_centrality.items(), key=lambda x: x[1], reverse=True)[:5]
+        top_eigenvector = sorted(eigenvector.items(), key=lambda x: x[1], reverse=True)[:5]
+
+        # Print results
+        print("\n🔹 Top 5 Nodes by Betweenness Centrality:")
+        for node, value in top_betweenness:
+            print(f"   {node}: {value:.4f}")
+
+        print("\n🔹 Top 5 Nodes by Degree Centrality:")
+        for node, value in top_degree:
+            print(f"   {node}: {value:.4f}")
+
+        print("\n🔹 Top 5 Nodes by Eigenvector Centrality:")
+        for node, value in top_eigenvector:
+            print(f"   {node}: {value:.4f}")
+
+        # Compare rankings
+        betweenness_nodes = [node for node, _ in top_betweenness]
+        degree_nodes = [node for node, _ in top_degree]
+        eigenvector_nodes = [node for node, _ in top_eigenvector]
+
+        overlap = set(betweenness_nodes) & set(degree_nodes) & set(eigenvector_nodes)
+        print("\n🔹 Nodes appearing in all three centrality rankings:", overlap if overlap else "None")
