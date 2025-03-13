@@ -25,7 +25,7 @@ class NetworkAnalyzer:
 
         return G
 
-    def extract_macroscopic_characterizations(self):
+    def extract_macroscopic_features(self):
         """Extracts and prints various microscopic network properties."""
         num_nodes = self.G.number_of_nodes()
         num_edges = self.G.number_of_edges()
@@ -58,37 +58,48 @@ class NetworkAnalyzer:
             print("Graph is disconnected. Average path length and diameter are not defined.")
 
     def plot_histograms(self):
-        """Plots the degree distribution in both linear and log-log scales."""
-        fig, axs = plt.subplots(1, 2, figsize=(12, 5))
-        '''
-        count_degrees = dict()
-        for degree in self.degree_sequence:
-            if degree not in count_degrees.keys():
-                count_degrees[degree] = 1
-            else:
-                count_degrees[degree] += 1
-        '''
+        """Plots the degree distribution using a combination of histograms and scatter plots 
+        in both linear and log-log scales, including trend lines."""
+        
+        fig, axs = plt.subplots(1, 2, figsize=(14, 6))  # Two plots side by side
+        
         degree_set = set(self.degree_sequence)
 
-        # Linear Scale Histogram
-        axs[0].hist(self.degree_sequence, bins=len(degree_set), edgecolor='black')
-        axs[0].set_title("Degree Distribution (Linear Scale)")
-        axs[0].set_xlabel("Degree")
-        axs[0].set_ylabel("Frequency")
-        axs[0].set_xlim(left=self.min_degree, right=self.max_degree)
+        ### Compute degree frequencies ###
+        from collections import Counter
+        degree_counts = Counter(self.degree_sequence)
+        degree = sorted(degree_counts.keys())  # Unique degrees
+        degree_count = [degree_counts[d] for d in degree]  # Count of each degree
+        
+        ### Histogram and Scatter (Linear Scale) ###
+        axs[0].hist(self.degree_sequence, bins=len(degree_set), edgecolor='black', alpha=0.6, label="Histogram")
+        axs[0].scatter(degree, degree_count, color="blue", label="Scatter Data", zorder=3)
+        axs[0].plot(degree, degree_count, color="blue", linestyle="-", alpha=0.7)  # Trend line
+        
+        axs[0].set_title("Degree Distribution (Linear Scale)", fontsize=15)
+        axs[0].set_xlabel("$k$", fontsize=13)
+        axs[0].set_ylabel("$P(k)$", fontsize=13)
+        axs[0].set_xlim(left=self.min_degree - 1, right=self.max_degree + 1)
+        axs[0].legend()
 
-        # Log-Log Scale Histogram with Logarithmic Binning
-        bins = np.logspace(np.log10(self.min_degree), np.log10(self.max_degree), num=20)
-        axs[1].hist(self.degree_sequence, bins=bins, edgecolor='black', log=True)
-        #axs[1].set_xlim(left=np.log10(self.min_degree), right=np.log10(self.max_degree))
+        ### Histogram and Scatter (Log-Log Scale) ###
+        bins = np.logspace(np.log10(self.min_degree), np.log10(self.max_degree), num=40)
+        axs[1].hist(self.degree_sequence, bins=bins, edgecolor='black', alpha=0.6, label="Histogram", log=True)
+        axs[1].scatter(degree, degree_count, color="red", label="Scatter Data", zorder=3)
+        axs[1].plot(degree, degree_count, color="red", linestyle="-", alpha=0.7)  # Trend line
+        
         axs[1].set_xscale("log")
-        axs[1].set_title("Degree Distribution (Log-Log Scale)")
-        axs[1].set_xlabel("Degree (log scale)")
-        axs[1].set_ylabel("Frequency (log scale)")
+        axs[1].set_yscale("log")
+        axs[1].set_title("Degree Distribution (Log-Log Scale)", fontsize=15)
+        axs[1].set_xlabel("$k$", fontsize=13)
+        axs[1].set_ylabel("$P(k)$", fontsize=13)
+        axs[1].legend()
+
+        # Adjust layout and display
         plt.tight_layout()
         plt.show()
 
-    def extract_microscopic_characterizations(self):
+    def extract_microscopic_features(self):
         # Compute centralities
         betweenness = nx.betweenness_centrality(self.G)
         degree_centrality = nx.degree_centrality(self.G)
@@ -100,15 +111,15 @@ class NetworkAnalyzer:
         top_eigenvector = sorted(eigenvector.items(), key=lambda x: x[1], reverse=True)[:5]
 
         # Print results
-        print("\n🔹 Top 5 Nodes by Betweenness Centrality:")
+        print("\n Top 5 Nodes by Betweenness Centrality:")
         for node, value in top_betweenness:
             print(f"   {node}: {value:.4f}")
 
-        print("\n🔹 Top 5 Nodes by Degree Centrality:")
+        print("\n Top 5 Nodes by Degree Centrality:")
         for node, value in top_degree:
             print(f"   {node}: {value:.4f}")
 
-        print("\n🔹 Top 5 Nodes by Eigenvector Centrality:")
+        print("\n Top 5 Nodes by Eigenvector Centrality:")
         for node, value in top_eigenvector:
             print(f"   {node}: {value:.4f}")
 
@@ -118,4 +129,4 @@ class NetworkAnalyzer:
         eigenvector_nodes = [node for node, _ in top_eigenvector]
 
         overlap = set(betweenness_nodes) & set(degree_nodes) & set(eigenvector_nodes)
-        print("\n🔹 Nodes appearing in all three centrality rankings:", overlap if overlap else "None")
+        print("\n Nodes appearing in all three centrality rankings:", overlap if overlap else "None")
