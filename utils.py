@@ -24,6 +24,47 @@ class NetworkAnalyzer:
             G = nx.Graph(G)  # Convert multigraph to simple graph
 
         return G
+    
+
+    def extract_microscopic_features(self):
+        # Compute centralities
+        betweenness = nx.betweenness_centrality(self.G)
+        degree_centrality = nx.degree_centrality(self.G)
+        eigenvector = nx.eigenvector_centrality(self.G, max_iter=1000)
+        pagerank = nx.pagerank(self.G)
+
+        # Get top 5 nodes for each centrality measure
+        top_betweenness = sorted(betweenness.items(), key=lambda x: x[1], reverse=True)[:5]
+        top_degree = sorted(degree_centrality.items(), key=lambda x: x[1], reverse=True)[:5]
+        top_eigenvector = sorted(eigenvector.items(), key=lambda x: x[1], reverse=True)[:5]
+        top_pagerank = sorted(pagerank.items(), key=lambda x: x[1], reverse=True)[:5]
+
+        # Print results
+        print("\n Top 5 Nodes by Betweenness Centrality:")
+        for node, value in top_betweenness:
+            print(f"   {node}: {value:.4f}")
+
+        print("\n Top 5 Nodes by Degree Centrality:")
+        for node, value in top_degree:
+            print(f"   {node}: {value:.4f}")
+
+        print("\n Top 5 Nodes by Eigenvector Centrality:")
+        for node, value in top_eigenvector:
+            print(f"   {node}: {value:.4f}")
+
+        print("\n Top 5 Nodes by PageRank:")
+        for node, value in top_pagerank:
+            print(f"   {node}: {value:.4f}")
+
+        # Compare rankings
+        betweenness_nodes = {node for node, _ in top_betweenness}
+        degree_nodes = {node for node, _ in top_degree}
+        eigenvector_nodes = {node for node, _ in top_eigenvector}
+        pagerank_nodes = {node for node, _ in top_pagerank}
+
+        overlap = betweenness_nodes & degree_nodes & eigenvector_nodes & pagerank_nodes
+        print("\n Nodes appearing in all four centrality rankings:", overlap if overlap else "None")
+
 
     def extract_macroscopic_features(self):
         """Extracts and prints various microscopic network properties."""
@@ -58,75 +99,88 @@ class NetworkAnalyzer:
             print("Graph is disconnected. Average path length and diameter are not defined.")
 
     def plot_histograms(self):
-        """Plots the degree distribution using a combination of histograms and scatter plots 
-        in both linear and log-log scales, including trend lines."""
-        
-        fig, axs = plt.subplots(1, 2, figsize=(14, 6))  # Two plots side by side
-        
-        degree_set = set(self.degree_sequence)
+        """Plots the degree distribution using scatter plots in both linear and log-log scales."""
+
+        fig, axs = plt.subplots(1, 2, figsize=(14, 6))  # Two side-by-side plots
 
         ### Compute degree frequencies ###
         from collections import Counter
         degree_counts = Counter(self.degree_sequence)
         degree = sorted(degree_counts.keys())  # Unique degrees
         degree_count = [degree_counts[d] for d in degree]  # Count of each degree
-        
-        ### Histogram and Scatter (Linear Scale) ###
-        axs[0].hist(self.degree_sequence, bins=len(degree_set), edgecolor='black', alpha=0.6, label="Histogram")
-        axs[0].scatter(degree, degree_count, color="blue", label="Scatter Data", zorder=3)
-        axs[0].plot(degree, degree_count, color="blue", linestyle="-", alpha=0.7)  # Trend line
-        
-        axs[0].set_title("Degree Distribution (Linear Scale)", fontsize=15)
-        axs[0].set_xlabel("$k$", fontsize=13)
-        axs[0].set_ylabel("$P(k)$", fontsize=13)
-        axs[0].set_xlim(left=self.min_degree - 1, right=self.max_degree + 1)
-        axs[0].legend()
 
-        ### Histogram and Scatter (Log-Log Scale) ###
-        bins = np.logspace(np.log10(self.min_degree), np.log10(self.max_degree), num=40)
-        axs[1].hist(self.degree_sequence, bins=bins, edgecolor='black', alpha=0.6, label="Histogram", log=True)
-        axs[1].scatter(degree, degree_count, color="red", label="Scatter Data", zorder=3)
-        axs[1].plot(degree, degree_count, color="red", linestyle="-", alpha=0.7)  # Trend line
-        
+        ### Scatter Plot (Linear Scale) ###
+        axs[0].scatter(degree, degree_count, color="blue", marker='o', alpha=0.8, zorder=3)
+        axs[0].set_title("Degree Distribution (Linear Scale)", fontsize=15)
+        axs[0].set_xlabel("$k$", fontsize=14)
+        axs[0].set_ylabel("$P(k)$", fontsize=14)
+        axs[0].set_xlim(left=self.min_degree - 1, right=self.max_degree + 1)
+        axs[0].tick_params(axis='both', which='major', labelsize=12)
+        axs[0].grid(True, linestyle="--", linewidth=0.5, alpha=0.7)
+
+        ### Scatter Plot (Log-Log Scale) ###
+        axs[1].scatter(degree, degree_count, color="red", marker='o', alpha=0.8, zorder=3)
         axs[1].set_xscale("log")
         axs[1].set_yscale("log")
         axs[1].set_title("Degree Distribution (Log-Log Scale)", fontsize=15)
-        axs[1].set_xlabel("$k$", fontsize=13)
-        axs[1].set_ylabel("$P(k)$", fontsize=13)
-        axs[1].legend()
+        axs[1].set_xlabel("$k$", fontsize=14)
+        axs[1].set_ylabel("$P(k)$", fontsize=14)
+        axs[1].tick_params(axis='both', which='major', labelsize=12)
+        axs[1].grid(True, which="both", linestyle="--", linewidth=0.5, alpha=0.7)
 
         # Adjust layout and display
         plt.tight_layout()
         plt.show()
 
-    def extract_microscopic_features(self):
-        # Compute centralities
-        betweenness = nx.betweenness_centrality(self.G)
-        degree_centrality = nx.degree_centrality(self.G)
-        eigenvector = nx.eigenvector_centrality(self.G, max_iter=1000)
 
-        # Get top 5 nodes for each centrality measure
-        top_betweenness = sorted(betweenness.items(), key=lambda x: x[1], reverse=True)[:5]
-        top_degree = sorted(degree_centrality.items(), key=lambda x: x[1], reverse=True)[:5]
-        top_eigenvector = sorted(eigenvector.items(), key=lambda x: x[1], reverse=True)[:5]
 
-        # Print results
-        print("\n Top 5 Nodes by Betweenness Centrality:")
-        for node, value in top_betweenness:
-            print(f"   {node}: {value:.4f}")
+    def fit_CCDF(self):
+        """Fits and plots the Complementary Cumulative Distribution Function (CCDF) with a power-law fit."""
+        
+        G = self.G
+        degree_sequence = [G.degree(node) for node in G.nodes()]
+        from collections import Counter
 
-        print("\n Top 5 Nodes by Degree Centrality:")
-        for node, value in top_degree:
-            print(f"   {node}: {value:.4f}")
+        # Compute degree frequencies
+        degree_counts = Counter(degree_sequence)
+        min_degree = min(degree_sequence)
+        max_degree = max(degree_sequence)
 
-        print("\n Top 5 Nodes by Eigenvector Centrality:")
-        for node, value in top_eigenvector:
-            print(f"   {node}: {value:.4f}")
+        degrees = list(range(min_degree, max_degree + 1))
+        degree_count = [degree_counts.get(k, 0) for k in degrees]
 
-        # Compare rankings
-        betweenness_nodes = [node for node, _ in top_betweenness]
-        degree_nodes = [node for node, _ in top_degree]
-        eigenvector_nodes = [node for node, _ in top_eigenvector]
+        # Remove zero-frequency degrees
+        degrees = [degrees[i] for i in range(len(degrees)) if degree_count[i] != 0]
+        degree_count = [degree_count[i] for i in range(len(degree_count)) if degree_count[i] != 0]
 
-        overlap = set(betweenness_nodes) & set(degree_nodes) & set(eigenvector_nodes)
-        print("\n Nodes appearing in all three centrality rankings:", overlap if overlap else "None")
+        # Compute CCDF
+        cdf = np.cumsum(degree_count) / G.number_of_nodes()  
+        ccdf = 1 - cdf  
+
+        # Prepare log-log fitting
+        log_degree_fit = np.log(degrees)[:-1]  # Exclude last point (log(0) is undefined)
+        log_ccdf_fit = np.log(ccdf)[:-1]
+
+        # Fit power-law (log-log scale)
+        m, b = np.polyfit(log_degree_fit, log_ccdf_fit, 1)  
+        theoretical = [np.exp(b) * k ** m for k in degrees]
+
+        # Plot
+        fig, ax = plt.subplots(1, 1, figsize=(6, 5))  
+
+        ax.scatter(degrees, ccdf, color='blue', marker='o', alpha=0.8)  # Scatter points
+        ax.plot(degrees, theoretical, color='black', linestyle='--', linewidth=2, label=r'$\gamma-1=%.2f$' % (-m))  # Theoretical line
+
+        ax.set_yscale('log')
+        ax.set_xscale('log')
+
+        ax.set_xlabel('$k$', fontsize=15)
+        ax.set_ylabel('$CCDF(k)$', fontsize=15)
+
+        ax.tick_params(axis='both', which='major', labelsize=12)
+        ax.legend(loc='best', fontsize=12)  
+
+        plt.grid(True, which="both", linestyle="--", linewidth=0.5, alpha=0.7)  
+        plt.tight_layout()
+        plt.show()
+
