@@ -197,4 +197,3 @@ class NetworkAnalyzer:
         plt.grid(True, which="both", linestyle="--", linewidth=0.5, alpha=0.7)  
         plt.tight_layout()
         plt.show()
-
