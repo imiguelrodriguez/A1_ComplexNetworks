@@ -1,6 +1,9 @@
+from collections import Counter
+
 import networkx as nx
 import numpy as np
 import matplotlib.pyplot as plt
+from scipy.stats import poisson
 
 
 class NetworkAnalyzer:
@@ -98,19 +101,21 @@ class NetworkAnalyzer:
         else:
             print("Graph is disconnected. Average path length and diameter are not defined.")
 
-    def plot_histograms(self):
-        """Plots the degree distribution using scatter plots in both linear and log-log scales."""
+    def plot_histograms(self, plot_theory=False):
+        """Plots the degree distribution with an optional theoretical Poisson distribution."""
 
         fig, axs = plt.subplots(1, 2, figsize=(14, 6))  # Two side-by-side plots
 
         ### Compute degree frequencies ###
-        from collections import Counter
         degree_counts = Counter(self.degree_sequence)
         degree = sorted(degree_counts.keys())  # Unique degrees
-        degree_count = [degree_counts[d] for d in degree]  # Count of each degree
+        degree_count = np.array([degree_counts[d] for d in degree])  # Count of each degree
+
+        ### Compute empirical probability ###
+        P_k = degree_count / sum(degree_count)  # Normalize to get probabilities
 
         ### Scatter Plot (Linear Scale) ###
-        axs[0].scatter(degree, degree_count, color="blue", marker='o', alpha=0.8, zorder=3)
+        axs[0].bar(degree, P_k, color="gray", alpha=0.6, label="Network")
         axs[0].set_title("Degree Distribution (Linear Scale)", fontsize=15)
         axs[0].set_xlabel("$k$", fontsize=14)
         axs[0].set_ylabel("$P(k)$", fontsize=14)
@@ -118,8 +123,18 @@ class NetworkAnalyzer:
         axs[0].tick_params(axis='both', which='major', labelsize=12)
         axs[0].grid(True, linestyle="--", linewidth=0.5, alpha=0.7)
 
+        if plot_theory:
+            # Compute theoretical Poisson distribution
+            k_values = np.arange(min(degree), max(degree) + 1)
+            theoretical_probs = poisson.pmf(k_values, mu=np.mean(self.degree_sequence))
+
+            # Overlay theoretical distribution
+            axs[0].plot(k_values, theoretical_probs, color="blue", lw=2, label="Theory")
+
+        axs[0].legend()
+
         ### Scatter Plot (Log-Log Scale) ###
-        axs[1].scatter(degree, degree_count, color="red", marker='o', alpha=0.8, zorder=3)
+        axs[1].scatter(degree, P_k, color="red", marker='o', alpha=0.8, zorder=3)
         axs[1].set_xscale("log")
         axs[1].set_yscale("log")
         axs[1].set_title("Degree Distribution (Log-Log Scale)", fontsize=15)
@@ -131,7 +146,6 @@ class NetworkAnalyzer:
         # Adjust layout and display
         plt.tight_layout()
         plt.show()
-
 
 
     def fit_CCDF(self):
