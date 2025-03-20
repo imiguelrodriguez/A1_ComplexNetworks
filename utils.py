@@ -1,5 +1,7 @@
 from collections import Counter
-
+import pandas as pd
+import seaborn as sns
+from scipy.stats import spearmanr
 import networkx as nx
 import numpy as np
 import matplotlib.pyplot as plt
@@ -16,6 +18,12 @@ class NetworkAnalyzer:
         self.min_degree = min(self.degree_sequence)
         self.max_degree = max(self.degree_sequence)
         self.avg_degree = np.mean(self.degree_sequence)
+        self.betweenness_centrality = None
+        self.degree_centrality = None
+        self.eigenvector_centrality = None
+        self.pagerank_centrality = None
+        self.closeness_centrality = None
+        self.katz_centrality = None
 
     def _load_network(self):
         G = nx.read_pajek(self.file_path)
@@ -31,16 +39,27 @@ class NetworkAnalyzer:
 
     def extract_microscopic_features(self):
         # Compute centralities
-        betweenness = nx.betweenness_centrality(self.G)
-        degree_centrality = nx.degree_centrality(self.G)
-        eigenvector = nx.eigenvector_centrality(self.G, max_iter=1000)
-        pagerank = nx.pagerank(self.G)
+        self.betweenness_centrality = nx.betweenness_centrality(self.G)
+        self.degree_centrality = nx.degree_centrality(self.G)
+        self.eigenvector_centrality = nx.eigenvector_centrality(self.G, max_iter=1000)
+        self.pagerank_centrality = nx.pagerank(self.G)
+        self.closeness_centrality = nx.closeness_centrality(self.G)
+
+        # We calculate the largest eigenvalue of the adjacency matrix
+        largest_eigenvalue = max(np.linalg.eigvals(nx.to_numpy_array(self.G)).real)
+
+        # We choose a safe alpha (slightly less than 1/largest_eigenvalue)
+        alpha_safe = 0.85 / largest_eigenvalue
+
+        self.katz_centrality = nx.katz_centrality(self.G, alpha=alpha_safe, max_iter=5000)
 
         # Get top 5 nodes for each centrality measure
-        top_betweenness = sorted(betweenness.items(), key=lambda x: x[1], reverse=True)[:5]
-        top_degree = sorted(degree_centrality.items(), key=lambda x: x[1], reverse=True)[:5]
-        top_eigenvector = sorted(eigenvector.items(), key=lambda x: x[1], reverse=True)[:5]
-        top_pagerank = sorted(pagerank.items(), key=lambda x: x[1], reverse=True)[:5]
+        top_betweenness = sorted(self.betweenness_centrality.items(), key=lambda x: x[1], reverse=True)[:5]
+        top_degree = sorted(self.degree_centrality.items(), key=lambda x: x[1], reverse=True)[:5]
+        top_eigenvector = sorted(self.eigenvector_centrality.items(), key=lambda x: x[1], reverse=True)[:5]
+        top_pagerank = sorted(self.pagerank_centrality.items(), key=lambda x: x[1], reverse=True)[:5]
+        top_closeness = sorted(self.closeness_centrality.items(), key=lambda x: x[1], reverse=True)[:5]
+        top_katz = sorted(self.katz_centrality.items(), key=lambda x: x[1], reverse=True)[:5]
 
         # Print results
         print("\n Top 5 Nodes by Betweenness Centrality:")
@@ -55,8 +74,16 @@ class NetworkAnalyzer:
         for node, value in top_eigenvector:
             print(f"   {node}: {value:.4f}")
 
-        print("\n Top 5 Nodes by PageRank:")
+        print("\n Top 5 Nodes by PageRank Centrality:")
         for node, value in top_pagerank:
+            print(f"   {node}: {value:.4f}")
+
+        print("\n Top 5 Nodes by Closeness Centrality:")
+        for node, value in top_closeness:
+            print(f"   {node}: {value:.4f}")
+        
+        print("\n Top 5 Nodes by Katz Centrality:")
+        for node, value in top_katz:
             print(f"   {node}: {value:.4f}")
 
         # Compare rankings
@@ -64,8 +91,10 @@ class NetworkAnalyzer:
         degree_nodes = {node for node, _ in top_degree}
         eigenvector_nodes = {node for node, _ in top_eigenvector}
         pagerank_nodes = {node for node, _ in top_pagerank}
+        closeness_nodes = {node for node, _ in top_closeness}
+        katz_nodes = {node for node, _ in top_katz}
 
-        overlap = betweenness_nodes & degree_nodes & eigenvector_nodes & pagerank_nodes
+        overlap = betweenness_nodes & degree_nodes & eigenvector_nodes & pagerank_nodes & closeness_nodes & katz_nodes
         print("\n Nodes appearing in all four centrality rankings:", overlap if overlap else "None")
 
 
@@ -179,7 +208,6 @@ class NetworkAnalyzer:
         m, b = np.polyfit(log_degree_fit, log_ccdf_fit, 1)  
         theoretical = [np.exp(b) * k ** m for k in degrees]
 
-        # Plot
         fig, ax = plt.subplots(1, 1, figsize=(6, 5))  
 
         ax.scatter(degrees, ccdf, color='blue', marker='o', alpha=0.8)  # Scatter points
@@ -196,4 +224,26 @@ class NetworkAnalyzer:
 
         plt.grid(True, which="both", linestyle="--", linewidth=0.5, alpha=0.7)  
         plt.tight_layout()
+        plt.show()
+
+
+    def plot_spearman_centrality_correlation(self):
+
+        G = self.G
+
+        centralities = {
+            "Degree": self.degree_centrality,
+            "Betweenness": self.betweenness_centrality,
+            "Eigenvector": self.eigenvector_centrality,
+            "PageRank": self.pagerank_centrality,
+            "Closeness": self.closeness_centrality,
+            "Katz": self.katz_centrality,
+        }
+        
+        df = pd.DataFrame(centralities)
+        correlation_matrix = df.corr(method='spearman')
+        
+        plt.figure(figsize=(8, 6))
+        sns.heatmap(correlation_matrix, annot=True, cmap="coolwarm", fmt=".2f", linewidths=0.5)
+        plt.title("Spearman Correlation Matrix of Centrality Measures", fontsize=15)
         plt.show()
