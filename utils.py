@@ -9,9 +9,13 @@ from scipy.stats import poisson
 
 
 class NetworkAnalyzer:
-    def __init__(self, file_path):
-        self.file_path = file_path
-        self.G = self._load_network()
+    def __init__(self, G=None, file_path=None, positions_file=None, positions=None):
+        if file_path:
+            self.file_path = file_path
+            self.G = self._load_network()
+            self.G = nx.relabel_nodes(self.G, {node: int(node) for node in self.G.nodes()})
+        else:
+            self.G = G
 
         # Compute degree-related statistics
         self.degree_sequence = [d for _, d in self.G.degree()]
@@ -24,9 +28,14 @@ class NetworkAnalyzer:
         self.pagerank_centrality = None
         self.closeness_centrality = None
         self.katz_centrality = None
+        if positions_file:
+            self.set_positions(positions_file)
+        else:
+            self.positions = positions
 
     def _load_network(self):
         G = nx.read_pajek(self.file_path)
+
 
         if nx.is_directed(G):
             G = G.to_undirected()
@@ -35,7 +44,23 @@ class NetworkAnalyzer:
             G = nx.Graph(G)  # Convert multigraph to simple graph
 
         return G
-    
+
+    def set_positions(self, positions_file=None, positions=None):
+        if positions_file:
+            try:
+                df = pd.read_csv(positions_file, sep="\t")  # Adjust separator if needed
+
+                # Convert to dictionary
+                p = df.set_index("Node")[["x", "y"]].to_dict(orient="index")
+
+                # Convert {0: {"x": 0.2109, "y": 0.0554}} -> {0: (0.2109, 0.0554)}
+                self.positions = {int(k): (v["x"], v["y"]) for k, v in p.items()}
+            except Exception as e:
+                print(e)
+        elif positions:
+            self.positions = positions
+        else:
+            print("You must specify the positions!")
 
     def extract_microscopic_features(self):
         # Compute centralities
@@ -81,7 +106,7 @@ class NetworkAnalyzer:
         print("\n Top 5 Nodes by Closeness Centrality:")
         for node, value in top_closeness:
             print(f"   {node}: {value:.4f}")
-        
+
         print("\n Top 5 Nodes by Katz Centrality:")
         for node, value in top_katz:
             print(f"   {node}: {value:.4f}")
@@ -179,7 +204,7 @@ class NetworkAnalyzer:
 
     def fit_CCDF(self):
         """Fits and plots the Complementary Cumulative Distribution Function (CCDF) with a power-law fit."""
-        
+
         G = self.G
         degree_sequence = [G.degree(node) for node in G.nodes()]
         from collections import Counter
@@ -197,18 +222,18 @@ class NetworkAnalyzer:
         degree_count = [degree_count[i] for i in range(len(degree_count)) if degree_count[i] != 0]
 
         # Compute CCDF
-        cdf = np.cumsum(degree_count) / G.number_of_nodes()  
-        ccdf = 1 - cdf  
+        cdf = np.cumsum(degree_count) / G.number_of_nodes()
+        ccdf = 1 - cdf
 
         # Prepare log-log fitting
         log_degree_fit = np.log(degrees)[:-1]  # Exclude last point (log(0) is undefined)
         log_ccdf_fit = np.log(ccdf)[:-1]
 
         # Fit power-law (log-log scale)
-        m, b = np.polyfit(log_degree_fit, log_ccdf_fit, 1)  
+        m, b = np.polyfit(log_degree_fit, log_ccdf_fit, 1)
         theoretical = [np.exp(b) * k ** m for k in degrees]
 
-        fig, ax = plt.subplots(1, 1, figsize=(6, 5))  
+        fig, ax = plt.subplots(1, 1, figsize=(6, 5))
 
         ax.scatter(degrees, ccdf, color='blue', marker='o', alpha=0.8)  # Scatter points
         ax.plot(degrees, theoretical, color='black', linestyle='--', linewidth=2, label=r'$\gamma-1=%.2f$' % (-m))  # Theoretical line
@@ -220,9 +245,9 @@ class NetworkAnalyzer:
         ax.set_ylabel('$CCDF(k)$', fontsize=15)
 
         ax.tick_params(axis='both', which='major', labelsize=12)
-        ax.legend(loc='best', fontsize=12)  
+        ax.legend(loc='best', fontsize=12)
 
-        plt.grid(True, which="both", linestyle="--", linewidth=0.5, alpha=0.7)  
+        plt.grid(True, which="both", linestyle="--", linewidth=0.5, alpha=0.7)
         plt.tight_layout()
         plt.show()
 
@@ -239,11 +264,43 @@ class NetworkAnalyzer:
             "Closeness": self.closeness_centrality,
             "Katz": self.katz_centrality,
         }
-        
+
         df = pd.DataFrame(centralities)
         correlation_matrix = df.corr(method='spearman')
-        
+
         plt.figure(figsize=(8, 6))
         sns.heatmap(correlation_matrix, annot=True, cmap="coolwarm", fmt=".2f", linewidths=0.5)
         plt.title("Spearman Correlation Matrix of Centrality Measures", fontsize=15)
         plt.show()
+
+    def plot_with_positions(self, r=None):
+        if self.positions:
+
+            # Find connected components
+            components = list(nx.connected_components(self.G))
+            num_components = len(components)
+
+            # Generate unique colors for each component
+            cmap = plt.colormaps.get_cmap("tab10")  # No need for num_components
+
+            # Generate colors
+            colors = [cmap(i / max(1, num_components - 1)) for i in range(num_components)]
+            plt.figure(figsize=(10, 7))
+            for i, component in enumerate(components):
+                subgraph = self.G.subgraph(component)  # Extract subgraph
+                nx.draw(
+                    subgraph,
+                    pos=self.positions,
+                    node_color=[colors[i] for _ in subgraph.nodes],  # Assign color to each node
+                    edge_color="gray",
+                    with_labels=False,
+                    node_size=50
+                )
+            if r:
+                plt.title(f"r={r:.2f} CC={len(list(nx.connected_components(self.G)))}")
+            else:
+                plt.title(f"CC={len(list(nx.connected_components(self.G)))}")
+            plt.show()
+
+        else:
+            print("Positions have not been specified!")
