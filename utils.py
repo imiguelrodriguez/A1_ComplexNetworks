@@ -1,7 +1,6 @@
 from collections import Counter
 import pandas as pd
 import seaborn as sns
-from scipy.stats import spearmanr
 import networkx as nx
 import numpy as np
 import matplotlib.pyplot as plt

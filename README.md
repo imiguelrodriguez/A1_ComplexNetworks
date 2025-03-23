@@ -16,6 +16,7 @@ Furthermore, it provides characterization of networks by guessing the models tha
 - NetworkX
 - Matplotlib
 - NumPy
+- Seaborn
 
 ## Usage
 
